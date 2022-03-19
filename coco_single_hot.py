@@ -6,7 +6,7 @@ import time
 import random
 from itertools import cycle
 
-OUTPUT_DIR = 'data/coco_onehot_data'
+OUTPUT_DIR = 'coco_onehot_data'
 
 ROTATE_DIR = [cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE, cv2.ROTATE_180]
 
@@ -48,7 +48,7 @@ def ts():
     return str(int(round(time.time() * 1000)))
 
 
-c = COCO("data/coco2017/annotations/instances_train2017.json")
+c = COCO("coco2017/annotations/instances_train2017.json")
 print(c)
 
 amounts = [len(c.getAnnIds(catIds=[i+1])) for i in range(len(coco_labels))]
@@ -73,7 +73,7 @@ if not os.path.exists(OUTPUT_DIR):
         img = c.loadImgs(ann['image_id'])
         file_name = img[0]['file_name']
 
-        cvimg = cv2.imread(os.path.join("data/coco2017/train2017", file_name))
+        cvimg = cv2.imread(os.path.join("coco2017/train2017", file_name))
         cvimg = crop(cvimg, ann)
 
         height, width, channel = cvimg.shape
@@ -83,7 +83,7 @@ if not os.path.exists(OUTPUT_DIR):
         cv2.imwrite("{3}/{0}/{2}{1}".format(class_name, file_name,
                                             ts(), OUTPUT_DIR), cvimg)
 
-max_amount = max(len(os.listdir("data/coco_onehot_data/{0}".format(c))) for c in os.listdir("data/coco_onehot_data"))
+max_amount = max(len(os.listdir("coco_onehot_data/{0}".format(c))) for c in os.listdir("coco_onehot_data"))
 print(max_amount)
 
 for folder in os.listdir(OUTPUT_DIR):
