@@ -1,0 +1,64 @@
+version: '3.9'
+services:
+  database:
+    build: ./images/database/
+
+    environment:
+      - HOSTNAME="database"
+
+    volumes:
+      - ./database_mount:/var/lib/database_mount/
+
+    networks: 
+      - service-network
+
+    tty: true
+    ports:
+      - "5000:5000"
+      # - "8082:8082"
+      # - "8089:8089/udp"
+
+  mapping:
+    build: ./images/mapping/
+
+    environment:
+      - HOSTNAME="mapping"
+      
+    networks: 
+      - service-network
+
+    # volumes:
+    #   - ./telegraf/:/etc/telegraf/
+    #   - /var/run/docker.sock:/var/run/docker.sock
+
+    depends_on:
+      - database
+
+  labelling:
+    build: ./images/labelling/
+
+    environment:
+      - HOSTNAME="labelling"
+
+    # ports:
+    #   - "3000:3000"
+
+    networks: 
+      - service-network
+
+    # volumes:
+    #   # Mount for configuration
+    #   - grafana-storage:/var/lib/grafana
+
+    depends_on:
+      - database
+
+networks: 
+  service-network:
+
+# volumes:
+#   grafana-storage:
+#   node_red_data:
+#   mosquitto-data:
+#   mosquitto-log:
+#   mosquitto-conf:

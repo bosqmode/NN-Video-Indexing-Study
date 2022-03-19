@@ -1,0 +1,31 @@
+BEGIN; 
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE  tFiles(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    filepath TEXT,
+    ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE  tStatus(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    last_searched TIMESTAMP NOT NULL,
+    model TEXT NOT NULL,
+    file_id INTEGER,
+    FOREIGN KEY (file_id)
+    REFERENCES tFiles (file_id)
+        ON UPDATE SET NULL
+        ON DELETE SET NULL
+);
+
+CREATE TABLE tDetections(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    video_ts TIMESTAMP NOT NULL,
+    category TEXT NOT NULL,
+    file_id INTEGER,
+    FOREIGN KEY (file_id)
+    REFERENCES tFiles (file_id)
+        ON UPDATE SET NULL
+        ON DELETE SET NULL
+);
+COMMIT;
