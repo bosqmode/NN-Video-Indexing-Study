@@ -33,7 +33,7 @@ class ResNet50Scanner(FrameScanner):
 
 
 scanner = ResNet50Scanner()
-file = "D:/Koodit/test2.mp4"
+file = "D:/Koodit/test.mp4"
 cap = cv2.VideoCapture(file)
 
 last_frame = None
@@ -47,21 +47,16 @@ while True:
 
     frame_counter += 1
 
-    if frame_counter % 4 == 0:
+    if frame_counter % 8 == 0:
         frame = cv2.rotate(frame, cv2.cv2.ROTATE_90_CLOCKWISE)
         frame = cv2.resize(frame, (224, 224), interpolation=cv2.INTER_AREA)
-        
-        if last_frame is None:
-            last_frame = frame
 
-        if np.sum(cv2.subtract(frame, last_frame)) > 1219833:
-            res = scanner.scan_frame(frame.reshape(-1, 224, 224, 3))
+        res = scanner.scan_frame(frame.reshape(-1, 224, 224, 3))
 
-            if np.max(res) > 0.7:
-                print(f'{frame_counter} - {imagenet_lbl[np.argmax(res)]} : {np.max(res)}')
+        if np.max(res) > 0.5:
+            print(f'{frame_counter} - {imagenet_lbl[np.argmax(res)]} : {np.max(res)}')
 
-            cv2.imshow('frame', frame)
-            cv2.waitKey(5)
-            last_frame = frame
+        cv2.imshow('frame', frame)
+        cv2.waitKey(1)
 
 print("done")
