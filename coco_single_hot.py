@@ -73,7 +73,7 @@ def generate_dataset(anns_path: str, imgs_path: str, output_dir: str, augment: b
             print(f'{i} : {len(c.anns)}')
 
             # skip zero area annotations
-            if ann['area'] < 3000:
+            if ann['area'] < 40000:
                 continue
 
             class_name = coco_labels[ann['category_id']-1].strip()
@@ -120,8 +120,8 @@ def generate_dataset(anns_path: str, imgs_path: str, output_dir: str, augment: b
 
 
 if __name__ == '__main__':
-    #generate_dataset(TRAIN_ANNOTATIONS, TRAIN_IMAGES, TRAIN_OUTPUT_DIR, True)
-    generate_dataset(VAL_ANNOTATIONS, VAL_IMAGES, VAL_OUTPUT_DIR, False)
+    generate_dataset(TRAIN_ANNOTATIONS, TRAIN_IMAGES, TRAIN_OUTPUT_DIR, True)
+    #generate_dataset(VAL_ANNOTATIONS, VAL_IMAGES, VAL_OUTPUT_DIR, False)
 
 # if not os.path.exists("coco_singlehot_rescaled"):
 #     os.mkdir("coco_singlehot_rescaled")
