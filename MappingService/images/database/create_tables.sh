@@ -1,3 +1,5 @@
 #!/bin/sh
-echo $DATABASE_DIR
-sqlite3 $DATABASE_DIR < /db_create.sql
+FILE=/var/lib/database_mount/database.db
+if [ ! -f "$FILE" ]; then
+    sqlite3 /database.db < /db_create.sql
+fi

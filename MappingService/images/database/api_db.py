@@ -5,8 +5,15 @@ from flask import Flask, request, jsonify
 import time
 import datetime
 import os
+from os.path import exists
+import shutil
 
 DATABASE = 'database.db'
+
+time.sleep(1)
+if not exists(os.environ['DATABASE_DIR']):
+    time.sleep(1)
+    shutil.copyfile('/database.db', os.environ['DATABASE_DIR'])
 
 app = Flask(__name__)
 
@@ -32,16 +39,21 @@ def get_files():
         res = query_to_dict('SELECT * FROM tFiles', conn)
         return jsonify(results=res)
 
-@app.route("/statuses", methods=['GET'])
-def get_statuses():
+@app.route("/detections/fileid", methods=['GET'])
+def get_detections_by_fileid():
+    data = json.loads(request.data)
     with sqlite3.connect(DATABASE) as conn:
-        res = query_to_dict('SELECT * FROM tStatus', conn)
+        res = query_to_dict(f'SELECT * FROM tDetections WHERE file_id == "{int(data["file_id"])}"', conn)
         return jsonify(results=res)
 
-@app.route("/detections", methods=['GET'])
-def get_detections():
+@app.route("/detections/filepath", methods=['GET'])
+def get_detections_by_filepath():
+    data = json.loads(request.data)
     with sqlite3.connect(DATABASE) as conn:
-        res = query_to_dict('SELECT * FROM tDetections', conn)
+        res = query_to_dict(f'SELECT * FROM tDetections\
+                                INNER JOIN tFiles\
+                                ON tDetections.file_id == tFiles.id\
+                                WHERE tFiles.filepath == "{data["filepath"]}"', conn)
         return jsonify(results=res)
 
 @app.route("/file/id", methods=['GET'])
@@ -54,14 +66,14 @@ def get_file_by_id():
         res = query_to_dict(f'SELECT * FROM tFiles WHERE id == "{int(data["id"])}"', conn)
         return jsonify(results=res)
 
-@app.route("/file/status", methods=['GET'])
+@app.route("/file/path", methods=['GET'])
 def file_status_get():
     """
-    Gets file status by supplying file_id
+    Gets file status by supplying filepath
     """
     data = json.loads(request.data)
     with sqlite3.connect(DATABASE) as conn:
-        res = query_to_dict(f'SELECT * FROM tStatus WHERE file_id == "{int(data["file_id"])}"', conn)
+        res = query_to_dict(f'SELECT * FROM tFiles WHERE filepath == "{data["filepath"]}"', conn)
         return jsonify(results=res)
 
 
@@ -78,37 +90,16 @@ def file_status_update():
 
         # file does not exists yet
         if len(res) <= 0:
-            cur.execute(f'INSERT INTO tFiles (filepath) VALUES (\"{data["filepath"]}\")')
+            cur.execute(f'INSERT INTO tFiles (filepath, last_searched, last_modified) VALUES (\"{data["filepath"]}\", {data["last_searched"]}, {data["last_modified"]})')
             conn.commit()
-            res = query_to_dict(f'SELECT * FROM tFiles WHERE filepath == "{data["filepath"]}"', conn, cur)
-            cur.execute(f'INSERT INTO tStatus (file_id, last_searched, model) VALUES ({res[0]["id"]}, 0, "none")')
-            conn.commit()
-            return 200
+            return "file added"
         else:
-            return 201
-        # file exists, update tStatus
-        # else:
-        #     res = query_to_dict(f'SELECT * FROM tStatus WHERE file_id == "{res[0]["id"]}"', conn, cur)
-        #     cur.execute(f'UPDATE tStatus SET last_searched = {data["last_searched"]} WHERE id == {res[]} ')
-        #     # elem = datetime.datetime.strptime(res[0]['last_searched'], '%Y-%m-%d %H:%M:%S')
-        #     # last_ts = time.mktime(elem.timetuple())
-        #     # new_ts = data['modified']
-        #     # print(last_ts)
+            cur.execute(f'UPDATE tFiles SET last_searched = {data["last_searched"]}, last_modified = {data["last_modified"]} WHERE filepath = \"{data["filepath"]}\"')
+            conn.commit()
+            return "file updated"
+    return -1
 
-
-@app.route("/detection/finished", methods=['POST'])
-def detection_finished():
-    """
-    When a detection finishes, call this to update tStatus' last_searched and model
-    """
-    data = json.loads(request.data)
-    with sqlite3.connect(DATABASE) as conn:
-        conn.row_factory = sqlite3.Row
-        cur = conn.cursor()
-        cur.execute(f'UPDATE tStatus SET last_searched = {int(time.time())}, model = \"{data["model"]}\" WHERE id == {data["id"]}')
-
-
-@app.route("/file/removed", methods=['POST'])
+@app.route("/file/removed", methods=['DELETE'])
 def file_removed():
     data = json.loads(request.data)
     with sqlite3.connect(DATABASE) as conn:
@@ -116,6 +107,43 @@ def file_removed():
         cur = conn.cursor()
         cur.execute(f'DELETE FROM tFiles WHERE filepath == "{data["filepath"]}"')
         conn.commit()
+        return "removed"
+
+@app.route("/models", methods=['GET'])
+def get_all_models():
+    with sqlite3.connect(DATABASE) as conn:
+        res = query_to_dict('SELECT * FROM tModels', conn)
+        return jsonify(results=res)
+
+@app.route("/model/name", methods=['GET'])
+def get_model_by_name_and_version():
+    data = json.loads(request.data)
+    with sqlite3.connect(DATABASE) as conn:
+        res = query_to_dict(f'SELECT * FROM tModels WHERE model_name == "{data["model_name"]}" AND version_string == "{data["version_string"]}"', conn)
+        return jsonify(results=res)
+
+@app.route("/model/add", methods=['POST'])
+def add_model():
+    data = json.loads(request.data)
+    with sqlite3.connect(DATABASE) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        res = query_to_dict(f'SELECT * FROM tModels WHERE model_name == "{data["model_name"]}" AND version_string == "{data["version_string"]}"', conn, cur)
+        if len(res) <= 0:
+            cur.execute(f'INSERT INTO tModels (model_name, description_text, added_timestamp, version_string) VALUES (\"{data["model_name"]}\", \"{data["description_text"]}\", "{int(data["added_timestamp"])}", \"{data["version_string"]}\")')
+            return "added"
+        else:
+            cur.execute(f'UPDATE tModels SET description_text = "{data["description_text"]}" WHERE model_name = \"{data["model_name"]}\"')
+            return "updated"
+
+@app.route("/detections/add", methods=['POST'])
+def add_detection():
+    data = json.loads(request.data)
+    with sqlite3.connect(DATABASE) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(f'INSERT INTO tDetections (video_ts, category, model, file_id) VALUES ("{int(data["video_ts"])}", "{data["category"]}", "{int(data["model"])}", "{int(data["file_id"])}")')
+        return "added"
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", debug=True)
