@@ -90,11 +90,14 @@ def file_status_update():
 
         # file does not exists yet
         if len(res) <= 0:
-            cur.execute(f'INSERT INTO tFiles (filepath, last_searched, last_modified) VALUES (\"{data["filepath"]}\", {data["last_searched"]}, {data["last_modified"]})')
+            cur.execute(f'INSERT INTO tFiles (filepath, last_searched, last_modified) VALUES (\"{data["filepath"]}\", 0, {data["last_modified"]})')
             conn.commit()
             return "file added"
         else:
-            cur.execute(f'UPDATE tFiles SET last_searched = {data["last_searched"]}, last_modified = {data["last_modified"]} WHERE filepath = \"{data["filepath"]}\"')
+            if 'last_searched' in data:
+                cur.execute(f'UPDATE tFiles SET last_searched = {data["last_searched"]}, last_modified = {data["last_modified"]} WHERE filepath = \"{data["filepath"]}\"')
+            else:
+                cur.execute(f'UPDATE tFiles SET last_modified = {data["last_modified"]} WHERE filepath = \"{data["filepath"]}\"')
             conn.commit()
             return "file updated"
     return -1

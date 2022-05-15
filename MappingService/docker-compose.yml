@@ -23,14 +23,14 @@ services:
 
     environment:
       - HOSTNAME="mapping"
-      
+
+    volumes:
+      - /home/bosqnux/Koodit/Oppari/data/testvideos:/home/bosqnux/Koodit/Oppari/data/testvideos 
+
     networks: 
       - service-network
 
-    # volumes:
-    #   - ./telegraf/:/etc/telegraf/
-    #   - /var/run/docker.sock:/var/run/docker.sock
-
+    tty: true
     depends_on:
       - database
 
