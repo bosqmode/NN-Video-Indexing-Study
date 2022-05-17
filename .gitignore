@@ -132,3 +132,4 @@ weights/*
 logs/*
 data/*
 MappingService/database_mount/database.db
+MappingService/images/labelling/VideoScanner/model/*

@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from matplotlib.pyplot import step
 import numpy as np
 from tensorflow.keras.models import Model, load_model
 import tensorflow as tf
@@ -7,8 +6,6 @@ import cv2
 import os
 from tensorflow import keras
 from collections import defaultdict
-
-from imagenet_labels import labels as imagenet_lbl
 import argparse
 
 
@@ -18,6 +15,8 @@ class FrameScanner(ABC):
     Input a frame (cv2)
     Return a list of detected classes (str)
     """
+
+
     @abstractmethod
     def scan_frame(self, frame):
         pass
@@ -27,8 +26,9 @@ class VideoPlayer(ABC):
     Video player abstraction
     for example, cv2
     """
-    def __init__(self, framescanner: FrameScanner):
+    def __init__(self, framescanner: FrameScanner, detection_callback):
         self.scanner = framescanner
+        self.callback = detection_callback
 
     @abstractmethod
     def play(self, path):
@@ -38,13 +38,17 @@ class OpencvVideoPlayer(VideoPlayer):
     def play(self, path):
         print(path)
         cap = cv2.VideoCapture(path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        time = 0.0
+
         frame_counter = 0
 
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
-
+            
+            time += 1000.0/fps
             frame_counter += 1
 
             if frame_counter % 8 == 0:
@@ -54,11 +58,8 @@ class OpencvVideoPlayer(VideoPlayer):
 
                 res = self.scanner.scan_frame(frame.reshape(-1, 224, 224, 3))
 
-                if np.max(res) > 0.8:
-                    print(f'{frame_counter} - {imagenet_lbl[np.argmax(res)]} : {np.max(res)}')
-
-                cv2.imshow('frame', frame)
-                cv2.waitKey(1)
+                if res is not None:
+                    self.callback(res, time)
 
 
 class SiameseScanner(FrameScanner):
@@ -103,11 +104,18 @@ class SiameseScanner(FrameScanner):
         return 0
 
 class ResNet50Scanner(FrameScanner):
-    def __init__(self):
-        self.model = keras.applications.ResNet50(include_top=True, weights="imagenet", input_shape=(224,224,3))
+    def __init__(self, labels, pretrained_model_path=None):
+        self.labels = labels
+        if pretrained_model_path is None:
+            self.model = keras.applications.ResNet50(include_top=True, weights="imagenet", input_shape=(224,224,3))
+        else:
+            self.model = tf.keras.models.load_model(pretrained_model_path)
 
     def scan_frame(self, frame):
-        return self.model.predict(frame)
+        res = self.model.predict(frame)
+        if np.max(res) > 0.8:
+            return self.labels[np.argmax(res)]
+        return None
 
 
 if __name__ == "__main__":
@@ -115,21 +123,10 @@ if __name__ == "__main__":
     parser.add_argument('--path', type=str, help="video file path")
     args = parser.parse_args()
 
-    #scanner = ResNet50Scanner()
-    scanner = SiameseScanner('weights/siamese_pretrained/siamesev3')
+    scanner = ResNet50Scanner()
+    #scanner = SiameseScanner('weights/siamese_pretrained/siamesev3')
     player = OpencvVideoPlayer(scanner)
     file = args.path
     player.play(file)
 
     print("done")
-
-
-    # model = load_model('weights/siamese_pretrained/siamesev3')
-    # img1 = cv2.imread('data/testdir/test390.jpg')/255.0
-    # img2 = cv2.imread('data/siamese_anchors/dog/1650027806433000000423201.jpg')/255.0
-    # img3 = cv2.imread('data/siamese_anchors/dog/1650027788015000000337274.jpg')/255.0
-    # img1 = img1.reshape(-1,224,224,3)
-    # img2 = img2.reshape(-1,224,224,3)
-    # img3 = img3.reshape(-1,224,224,3)
-    # print(model.predict([img1, img2]))
-    # print(model.predict([img1, img3]))

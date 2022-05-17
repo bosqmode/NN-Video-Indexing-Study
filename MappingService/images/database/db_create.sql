@@ -19,7 +19,7 @@ CREATE TABLE tModels(
 
 CREATE TABLE tDetections(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    video_ts TIMESTAMP NOT NULL,
+    video_ts INTEGER NOT NULL,
     category TEXT NOT NULL,
     model INTEGER NOT NULL,
     file_id INTEGER,

@@ -39,6 +39,12 @@ def get_files():
         res = query_to_dict('SELECT * FROM tFiles', conn)
         return jsonify(results=res)
 
+@app.route("/files/unlabelled", methods=['GET'])
+def get_unlabelled_files():
+    with sqlite3.connect(DATABASE) as conn:
+        res = query_to_dict('SELECT * FROM tFiles WHERE last_searched < last_modified', conn)
+        return jsonify(results=res)
+
 @app.route("/detections/fileid", methods=['GET'])
 def get_detections_by_fileid():
     data = json.loads(request.data)
@@ -139,6 +145,13 @@ def add_model():
             cur.execute(f'UPDATE tModels SET description_text = "{data["description_text"]}" WHERE model_name = \"{data["model_name"]}\"')
             return "updated"
 
+@app.route("/detections", methods=['GET'])
+def get_detections():
+    fileid = int(request.args.get('id'))
+    with sqlite3.connect(DATABASE) as conn:
+        res = query_to_dict(f'SELECT * FROM tDetections WHERE file_id = "{fileid}"', conn)
+        return jsonify(results=res)
+
 @app.route("/detections/add", methods=['POST'])
 def add_detection():
     data = json.loads(request.data)
@@ -146,6 +159,15 @@ def add_detection():
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
         cur.execute(f'INSERT INTO tDetections (video_ts, category, model, file_id) VALUES ("{int(data["video_ts"])}", "{data["category"]}", "{int(data["model"])}", "{int(data["file_id"])}")')
+        return "added"
+
+@app.route("/detections/finished", methods=['POST'])
+def detection_finished():
+    data = json.loads(request.data)
+    with sqlite3.connect(DATABASE) as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(f'UPDATE tFiles SET last_searched = CURRENT_TIMESTAMP WHERE id = \"{int(data["id"])}\"')
         return "added"
 
 if __name__ == '__main__':
