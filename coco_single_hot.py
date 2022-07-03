@@ -120,8 +120,18 @@ def generate_dataset(anns_path: str, imgs_path: str, output_dir: str, augment: b
 
 
 if __name__ == '__main__':
-    generate_dataset(TRAIN_ANNOTATIONS, TRAIN_IMAGES, TRAIN_OUTPUT_DIR, False)
-    generate_dataset(VAL_ANNOTATIONS, VAL_IMAGES, VAL_OUTPUT_DIR, False)
+    # generate_dataset(TRAIN_ANNOTATIONS, TRAIN_IMAGES, TRAIN_OUTPUT_DIR, False)
+    # generate_dataset(VAL_ANNOTATIONS, VAL_IMAGES, VAL_OUTPUT_DIR, False)
+    f = open("final_labels.py", "w")
+    f.write("labels = [\n")
+
+    for folder in os.listdir(TRAIN_OUTPUT_DIR):
+        class_amount = len(os.listdir(f'{TRAIN_OUTPUT_DIR}/{folder}'))
+        print(class_amount)
+        if class_amount > 0:
+            f.write(f'"{folder}",\n')
+    
+    f.write("]")
 
 # if not os.path.exists("coco_singlehot_rescaled"):
 #     os.mkdir("coco_singlehot_rescaled")
