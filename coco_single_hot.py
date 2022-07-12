@@ -13,6 +13,9 @@ TRAIN_OUTPUT_DIR = 'data/coco_onehot_train'
 VAL_ANNOTATIONS = 'data/coco2017/annotations/instances_val2017.json'
 VAL_IMAGES = 'data/coco2017/val2017'
 VAL_OUTPUT_DIR = 'data/coco_onehot_val'
+TRANSFER_IMAGES = 'data/new_classes'
+TRAIN_TRANSFER_OUTPUT_DIR = 'data/transfer_train'
+VAL_TRANSFER_OUTPUT_DIR = 'data/transfer_val'
 
 ROTATE_DIR = [cv2.ROTATE_90_CLOCKWISE, cv2.ROTATE_90_COUNTERCLOCKWISE, cv2.ROTATE_180]
 
@@ -73,7 +76,7 @@ def generate_dataset(anns_path: str, imgs_path: str, output_dir: str, augment: b
             print(f'{i} : {len(c.anns)}')
 
             # skip zero area annotations
-            if ann['area'] < 40000:
+            if ann['area'] < 14400:
                 continue
 
             class_name = coco_labels[ann['category_id']-1].strip()
@@ -84,6 +87,18 @@ def generate_dataset(anns_path: str, imgs_path: str, output_dir: str, augment: b
             cvimg = crop(cvimg, ann)
 
             height, width, channel = cvimg.shape
+
+            if height > width:
+                cvimg = cv2.resize(cvimg, (int(224*(width/height)), 224))
+            elif width > height:
+                cvimg = cv2.resize(cvimg, (224, int(224*(height/width))))
+
+            height, width, channel = cvimg.shape
+            height_delta = max(224 - height, 0)
+            width_delta = max(224 - width, 0)
+
+            if height_delta > 0 or width_delta > 0:
+                cvimg = cv2.copyMakeBorder(cvimg, int(height_delta/2), int(height_delta/2), int(width_delta/2), int(width_delta/2), cv2.BORDER_REPLICATE)
             if height > 224 or width > 224:
                 cvimg = rescale(cvimg)
 
@@ -118,20 +133,98 @@ def generate_dataset(anns_path: str, imgs_path: str, output_dir: str, augment: b
             if generated >= diff:
                 break
 
+def get_jpgs(dir):
+    jpgs = []
+    for root, dirnames, filenames in os.walk(dir):
+        for filename in filenames:
+            if filename.endswith('.jpg'):
+                jpgs.append(filename)
+
+    return jpgs
+
+
+def balance_datasets():
+    train_imgs = get_jpgs(TRAIN_OUTPUT_DIR)
+    val_imgs = get_jpgs(VAL_OUTPUT_DIR)
+
+    print(len(train_imgs))
+    print(len(val_imgs))
+
+    total = len(train_imgs) + len(val_imgs)
+    val_split = total*0.1
+    diff = int(val_split - len(val_imgs))
+    print(diff)
+
+    import shutil
+    for c in coco_labels:
+        files = os.listdir(f'{TRAIN_OUTPUT_DIR}/{c}')
+        amount = len(files) * (diff/total)
+        if len(files) > 2:
+            amount = max(int(amount), 1)
+            movefiles = random.choices(files, k=amount)
+            movefiles = list(set(movefiles))
+            for movefile in movefiles:
+                if not os.path.exists(f'{VAL_OUTPUT_DIR}/{c}'):
+                    os.mkdir(f'{VAL_OUTPUT_DIR}/{c}')
+                shutil.move(f'{TRAIN_OUTPUT_DIR}/{c}/{movefile}', f'{VAL_OUTPUT_DIR}/{c}/{movefile}')
+
+    print(len(get_jpgs(TRAIN_OUTPUT_DIR)))
+    print(len(get_jpgs(VAL_OUTPUT_DIR)))
+
+def generate_transfer_learning_dataset(path):
+    if os.path.exists(path):
+
+        newclasses = os.listdir(path)
+        print(newclasses)
+
+        os.mkdir(f"{TRAIN_TRANSFER_OUTPUT_DIR}")
+        os.mkdir(f"{VAL_TRANSFER_OUTPUT_DIR}")
+        for cn in newclasses:
+            os.mkdir(f"{TRAIN_TRANSFER_OUTPUT_DIR}/{cn}")
+            os.mkdir(f"{VAL_TRANSFER_OUTPUT_DIR}/{cn}")
+
+        for i, val in enumerate(newclasses):
+            files = os.listdir(f"{path}/{val}")
+            split = int(len(files)*0.9)
+
+            for i2, val2 in enumerate(files):
+                print(os.path.join(path, val2))
+                cvimg = cv2.imread(os.path.join(path, val, val2))
+
+                height, width, channel = cvimg.shape
+
+                if height > width:
+                    cvimg = cv2.resize(cvimg, (int(224*(width/height)), 224))
+                elif width > height:
+                    cvimg = cv2.resize(cvimg, (224, int(224*(height/width))))
+
+                height, width, channel = cvimg.shape
+                height_delta = max(224 - height, 0)
+                width_delta = max(224 - width, 0)
+
+                if height_delta > 0 or width_delta > 0:
+                    cvimg = cv2.copyMakeBorder(cvimg, int(height_delta/2), int(height_delta/2), int(width_delta/2), int(width_delta/2), cv2.BORDER_REPLICATE)
+                if height > 224 or width > 224:
+                    cvimg = rescale(cvimg)
+                
+                cv2.imwrite(f"{TRAIN_TRANSFER_OUTPUT_DIR if i2 < split else VAL_TRANSFER_OUTPUT_DIR}/{val}/{ts()}.jpg", cvimg)    
 
 if __name__ == '__main__':
-    # generate_dataset(TRAIN_ANNOTATIONS, TRAIN_IMAGES, TRAIN_OUTPUT_DIR, False)
-    # generate_dataset(VAL_ANNOTATIONS, VAL_IMAGES, VAL_OUTPUT_DIR, False)
-    f = open("final_labels.py", "w")
-    f.write("labels = [\n")
+    generate_dataset(TRAIN_ANNOTATIONS, TRAIN_IMAGES, TRAIN_OUTPUT_DIR, False)
+    generate_dataset(VAL_ANNOTATIONS, VAL_IMAGES, VAL_OUTPUT_DIR, False)
+    #generate_transfer_learning_dataset(TRANSFER_IMAGES)
+    balance_datasets()
 
-    for folder in os.listdir(TRAIN_OUTPUT_DIR):
-        class_amount = len(os.listdir(f'{TRAIN_OUTPUT_DIR}/{folder}'))
-        print(class_amount)
-        if class_amount > 0:
-            f.write(f'"{folder}",\n')
+    # f = open("final_labels.py", "w")
+    # f.write("labels = [\n")
+    # for folder in os.listdir(TRAIN_OUTPUT_DIR):
+    #     class_amount = len(os.listdir(f'{TRAIN_OUTPUT_DIR}/{folder}'))
+    #     print(class_amount)
+    #     if class_amount > 0:
+    #         f.write(f'"{folder}",\n')
+    # f.write("]")
+
     
-    f.write("]")
 
 # if not os.path.exists("coco_singlehot_rescaled"):
 #     os.mkdir("coco_singlehot_rescaled")
