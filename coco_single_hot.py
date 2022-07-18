@@ -185,7 +185,7 @@ def generate_transfer_learning_dataset(path):
 
         for i, val in enumerate(newclasses):
             files = os.listdir(f"{path}/{val}")
-            split = int(len(files)*0.9)
+            split = int(len(files)*0.8)
 
             for i2, val2 in enumerate(files):
                 print(os.path.join(path, val2))
@@ -210,10 +210,10 @@ def generate_transfer_learning_dataset(path):
                 cv2.imwrite(f"{TRAIN_TRANSFER_OUTPUT_DIR if i2 < split else VAL_TRANSFER_OUTPUT_DIR}/{val}/{ts()}.jpg", cvimg)    
 
 if __name__ == '__main__':
-    generate_dataset(TRAIN_ANNOTATIONS, TRAIN_IMAGES, TRAIN_OUTPUT_DIR, False)
-    generate_dataset(VAL_ANNOTATIONS, VAL_IMAGES, VAL_OUTPUT_DIR, False)
-    #generate_transfer_learning_dataset(TRANSFER_IMAGES)
-    balance_datasets()
+    #generate_dataset(TRAIN_ANNOTATIONS, TRAIN_IMAGES, TRAIN_OUTPUT_DIR, False)
+    #generate_dataset(VAL_ANNOTATIONS, VAL_IMAGES, VAL_OUTPUT_DIR, False)
+    generate_transfer_learning_dataset(TRANSFER_IMAGES)
+    #balance_datasets()
 
     # f = open("final_labels.py", "w")
     # f.write("labels = [\n")
