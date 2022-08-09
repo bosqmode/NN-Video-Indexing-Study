@@ -22,6 +22,7 @@ CREATE TABLE tDetections(
     video_ts INTEGER NOT NULL,
     category TEXT NOT NULL,
     model INTEGER NOT NULL,
+    confidence REAL DEFAULT -1 NOT NULL,
     file_id INTEGER,
     FOREIGN KEY (file_id)
     REFERENCES tFiles (file_id)

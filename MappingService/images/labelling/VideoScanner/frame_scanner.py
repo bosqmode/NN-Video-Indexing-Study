@@ -7,7 +7,9 @@ import os
 from tensorflow import keras
 from collections import defaultdict
 import argparse
-
+import io
+from scipy.spatial import distance
+import time
 
 
 class FrameScanner(ABC):
@@ -18,7 +20,7 @@ class FrameScanner(ABC):
 
 
     @abstractmethod
-    def scan_frame(self, frame):
+    def scan_frame(self, frame) -> list:
         pass
 
 class VideoPlayer(ABC):
@@ -26,9 +28,10 @@ class VideoPlayer(ABC):
     Video player abstraction
     for example, cv2
     """
-    def __init__(self, framescanner: FrameScanner, detection_callback):
+    def __init__(self, framescanner: FrameScanner, detection_callback, max_resolution: int=224*3):
         self.scanner = framescanner
         self.callback = detection_callback
+        self.max_resolution = max_resolution
 
     @abstractmethod
     def play(self, path):
@@ -40,7 +43,6 @@ class OpencvVideoPlayer(VideoPlayer):
         cap = cv2.VideoCapture(path)
         fps = cap.get(cv2.CAP_PROP_FPS)
         time = 0.0
-
         frame_counter = 0
 
         while True:
@@ -51,57 +53,57 @@ class OpencvVideoPlayer(VideoPlayer):
             time += 1000.0/fps
             frame_counter += 1
 
-            if frame_counter % 8 == 0:
-                #frame = cv2.rotate(frame, cv2.cv2.ROTATE_90_CLOCKWISE)
-                frame = cv2.resize(frame, (224, 224), interpolation=cv2.INTER_AREA)
-                frame = frame/255.0
+            height, width, channel = frame.shape
 
-                res = self.scanner.scan_frame(frame.reshape(-1, 224, 224, 3))
+            if height > width:
+                frame = cv2.resize(frame, (int(self.max_resolution*(width/height)), self.max_resolution))
+            else:
+                frame = cv2.resize(frame, (self.max_resolution, int(self.max_resolution*(height/width))))
 
-                if res is not None:
-                    self.callback(res, time)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame = frame/255.0
+
+            res = self.scanner.scan_frame(frame)
+
+            if res is not None:
+                self.callback(res, time)
 
 
 class SiameseScanner(FrameScanner):
-    def __init__(self, modelpath):
-        self.model = load_model(modelpath)
-        self.anchor_count = 5
+    def __init__(self, modelpath, labels):
+        self.model = tf.keras.models.load_model(modelpath)
         self.anchors = self.load_anchors()
-        print(self.anchors)
+        self.anchor_weights = self.load_anchor_weights()
+        self.window_size = 224
+        self.stride = self.window_size * 0.5
+        self.labels = labels
+
+    def load_anchor_weights(self):
+        return np.load("VideoScanner/anchor_weights.npy")
 
     def load_anchors(self):
-        anchors = defaultdict(list)
-        for dir in os.listdir('data/siamese_anchors'):
-            for file in os.listdir(f'data/siamese_anchors/{dir}'):
-                anchors[dir].append(cv2.imread(f'data/siamese_anchors/{dir}/{file}').reshape(-1, 224,224,3)/255.0)
-        return anchors
+        return np.load("VideoScanner/anchor_averages.npy")
 
     def scan_frame(self, frame):
-        preds = []
-        feed1 = []
-        feed2 = []
-        classnames = []
+        grid = []
+        for y in range(0, int(frame.shape[0] - self.window_size), int(self.stride)):
+            for x in range(0, int(frame.shape[1] - self.window_size), int(self.stride)):
+                grid.append(frame[y:y + self.window_size, x:x + self.window_size])
 
-        for k in self.anchors:
-            for img in self.anchors[k]:
-                feed1.append(img.reshape(224,224,3))
-                feed2.append(frame.reshape(224,224,3))
-                classnames.append(k)
+        matches = []
+        grid_preds = self.model.predict(np.array(grid).reshape(-1,224,224,3))
+        for i,v in enumerate(grid_preds):
+            #pred = model.predict(v.reshape(-1,224,224,3))[0]
 
-        pred = self.model.predict([np.array(feed1), np.array(feed2)])
-        print(len(pred))
-        best_avg = 0
-        best_class = ""
-        for x in range(0, len(pred), self.anchor_count):
-            avg = (np.sum(pred[x:x+self.anchor_count])) / self.anchor_count
-            preds.append((avg, classnames[x]))
-            if avg > best_avg:
-                best_avg = avg
-                cv2.imshow("anchor", feed1[x])
-                best_class = classnames[x]
+            distances = []
+            for i2,anchor in enumerate(self.anchors):
+                dist = distance.cosine(anchor, v)
+                distances.append(dist)
 
-        print(f'{best_class} : {best_avg}')
-        return 0
+            guess = np.argmin(np.array(distances))
+            if distances[guess] < 0.2 * self.anchor_weights[guess]:
+                matches.append((self.labels[guess],distances[guess]))
+        return matches
 
 class ResNet50Scanner(FrameScanner):
     def __init__(self, labels, pretrained_model_path=None):
@@ -112,10 +114,12 @@ class ResNet50Scanner(FrameScanner):
             self.model = tf.keras.models.load_model(pretrained_model_path)
 
     def scan_frame(self, frame):
-        res = self.model.predict(frame)
+        matches = []
+        frame = cv2.resize(frame, (224, 224), interpolation=cv2.INTER_AREA)
+        res = self.model.predict(frame.reshape(-1, 224, 224, 3))
         if np.max(res) > 0.8:
-            return self.labels[np.argmax(res)]
-        return None
+            matches.append((self.labels[np.argmax(res)], -1))
+        return matches
 
 
 if __name__ == "__main__":

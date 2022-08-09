@@ -158,7 +158,7 @@ def add_detection():
     with sqlite3.connect(DATABASE) as conn:
         conn.row_factory = sqlite3.Row
         cur = conn.cursor()
-        cur.execute(f'INSERT INTO tDetections (video_ts, category, model, file_id) VALUES ("{int(data["video_ts"])}", "{data["category"]}", "{int(data["model"])}", "{int(data["file_id"])}")')
+        cur.execute(f'INSERT INTO tDetections (video_ts, category, model, file_id, confidence) VALUES ("{int(data["video_ts"])}", "{data["category"]}", "{int(data["model"])}", "{int(data["file_id"])}", "{float(data["confidence"])}")')
         return "added"
 
 @app.route("/detections/finished", methods=['POST'])

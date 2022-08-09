@@ -209,28 +209,21 @@ def generate_transfer_learning_dataset(path):
                 
                 cv2.imwrite(f"{TRAIN_TRANSFER_OUTPUT_DIR if i2 < split else VAL_TRANSFER_OUTPUT_DIR}/{val}/{ts()}.jpg", cvimg)    
 
+def generate_labels(imagedirpath: str, filepath: str):
+    f = open(filepath, "w")
+    f.write("labels = [\n")
+    for folder in os.listdir(imagedirpath):
+        class_amount = len(os.listdir(f'{imagedirpath}/{folder}'))
+        print(class_amount)
+        if class_amount > 0:
+            f.write(f'"{folder}",\n')
+    f.write("]")  
+
 if __name__ == '__main__':
-    #generate_dataset(TRAIN_ANNOTATIONS, TRAIN_IMAGES, TRAIN_OUTPUT_DIR, False)
-    #generate_dataset(VAL_ANNOTATIONS, VAL_IMAGES, VAL_OUTPUT_DIR, False)
+    generate_dataset(TRAIN_ANNOTATIONS, TRAIN_IMAGES, TRAIN_OUTPUT_DIR, False)
+    generate_dataset(VAL_ANNOTATIONS, VAL_IMAGES, VAL_OUTPUT_DIR, False)
     generate_transfer_learning_dataset(TRANSFER_IMAGES)
-    #balance_datasets()
+    balance_datasets()
 
-    # f = open("final_labels.py", "w")
-    # f.write("labels = [\n")
-    # for folder in os.listdir(TRAIN_OUTPUT_DIR):
-    #     class_amount = len(os.listdir(f'{TRAIN_OUTPUT_DIR}/{folder}'))
-    #     print(class_amount)
-    #     if class_amount > 0:
-    #         f.write(f'"{folder}",\n')
-    # f.write("]")
-
-    
-
-# if not os.path.exists("coco_singlehot_rescaled"):
-#     os.mkdir("coco_singlehot_rescaled")
-#     for c in os.listdir("coco_singlehot"):
-#         os.mkdir("coco_singlehot_rescaled/{0}".format(c))
-#         for f in os.listdir("coco_singlehot/{0}".format(c)):
-#             cvimg = cv2.imread("coco_singlehot/{0}/{1}".format(c, f))
-#             cvimg = rescale(cvimg)
-#             cv2.imwrite("coco_singlehot_rescaled/{0}/{1}".format(c,f), cvimg)
+    generate_labels(TRAIN_OUTPUT_DIR, "coco_final_labels.py")
+    generate_labels(VAL_OUTPUT_DIR, "coco_final_labels_transfer.py")

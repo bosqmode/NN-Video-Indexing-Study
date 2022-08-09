@@ -3,17 +3,15 @@ RUN apt-get update && yes | apt-get upgrade
 RUN apt-get install -y python3
 RUN apt-get install -y python3-pip
 RUN apt-get install nano
-#RUN apt-get install ffmpeg libsm6 libxext6  -y
 RUN pip install --no-cache --upgrade pip
 RUN pip install --no-cache numpy
 RUN pip install --no-cache tensorflow
-#RUN pip install --no-cache opencv-python
 RUN pip install --no-cache opencv-python-headless
 RUN pip install --no-cache requests
-
+RUN pip install --no-cache scipy
 
 ENV DB_ENDPOINT=http://database:5000
-ENV MODEL='0'
+ENV MODEL='1'
 
 COPY VideoScanner /VideoScanner
 

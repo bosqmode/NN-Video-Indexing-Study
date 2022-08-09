@@ -1,4 +1,5 @@
-import VideoScanner.imagenet_labels as lbl
+import VideoScanner.imagenet_labels as imagenet_labels
+import VideoScanner.coco_final_labels_transfer as coco_labels
 import VideoScanner.frame_scanner as sc
 import os
 import requests
@@ -8,20 +9,20 @@ URL = os.environ['DB_ENDPOINT']
 FILE_ID = -1
 MODEL = int(os.environ['MODEL'])
 
-def detection_callback(detection, timestamp):
+def detection_callback(detections, timestamp):
     global FILE_ID
     global MODEL
-    print(f'{detection} : {timestamp}')
-    #(video_ts, category, model, file_id) 
-    payload = {'file_id':FILE_ID, 'category':detection, 'video_ts':int(timestamp), 'model':MODEL}
-    r = requests.post(url=f'{URL}/detections/add', json=payload)
-    print(r)
+    for detectiontuple in detections:
+        payload = {'file_id':FILE_ID, 'category':detectiontuple[0], 'video_ts':int(timestamp), 'model':MODEL, 'confidence':float(detectiontuple[1])}
+        r = requests.post(url=f'{URL}/detections/add', json=payload)
+        print(r)
 
 unlabelled_files = requests.get(url=f'{URL}/files/unlabelled')
 unlabelled_files = unlabelled_files.json()
 
 if len(unlabelled_files['results']) > 0:
-    scanner = sc.ResNet50Scanner(lbl.labels, 'VideoScanner/model')
+    #scanner = sc.ResNet50Scanner(imagenet_labels.labels, 'VideoScanner/resnetmodel')
+    scanner = sc.SiameseScanner('VideoScanner/siamesemodel', coco_labels.labels)
     player = sc.OpencvVideoPlayer(scanner, detection_callback)
 
     file = unlabelled_files['results'][0]['filepath']
